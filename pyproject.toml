@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "attack-surface-scanner"
+version = "0.1.0"
+description = "Attack surface and cloud misconfiguration scanner for SaaS applications"
+requires-python = ">=3.10"
+dependencies = [
+  "typer>=0.12",
+  "pydantic>=2.0",
+  "requests>=2.31",
+  "dnspython>=2.4",
+  "httpx>=0.27",
+  "rich>=13.0"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
