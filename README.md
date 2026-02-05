@@ -1,44 +1,54 @@
 # Attack Surface Scanner for SaaS Applications
 
-A non-intrusive security scanner that inventories the public attack surface of a SaaS application and identifies common transport- and cloud-level misconfigurations.
+[![CI](https://github.com/cleamax/attack-surface-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/cleamax/attack-surface-scanner/actions)
 
-This project is designed as a **practical security engineering signal** rather than a penetration testing tool.
+A **non-intrusive attack surface and configuration security scanner** for SaaS applications.
+
+The project is designed as a **practical security engineering signal** for Cloud / AppSec / Detection roles and focuses on *real-world constraints*, *explainability*, and *production-grade engineering practices*.
 
 ---
 
 ## Overview
 
-Modern SaaS applications often expose a large number of publicly reachable assets
-(subdomains, APIs, dashboards, CDNs).
-Misconfigurations at this layer are a frequent root cause of security incidents.
+Modern SaaS applications expose a constantly changing public attack surface:
+subdomains, APIs, dashboards, CDNs, and cloud frontends.
 
-This scanner helps answer a simple but critical question:
+Security incidents are often caused not by advanced exploits, but by:
+- forgotten assets
+- weak transport security
+- missing security headers
+- configuration drift
 
-> What is publicly exposed — and is it securely configured?
+This tool answers a simple but critical question:
 
-The tool focuses on **visibility, explainability, and safe-by-design checks**.
+> **What is publicly exposed — and how risky is it?**
 
 ---
 
 ## What the scanner does (current state)
 
-### Attack surface discovery
-- Passive subdomain enumeration using Certificate Transparency logs
+### ✅ Attack surface discovery
+- Passive subdomain enumeration via Certificate Transparency logs
 - Enterprise-safe fallback for restricted proxy environments
-- Deterministic asset list (no active probing, no brute force)
+- Deterministic, non-bruteforce asset discovery
 
-### DNS resolution
-- Resolves A and AAAA records for each discovered asset
+### ✅ DNS resolution & reachability
+- Resolves A / AAAA records
 - Identifies which assets are actually reachable
-- Handles timeouts and NXDOMAIN safely
+- Safe timeout and error handling
 
-### HTTP / HTTPS probing
-- Non-intrusive HTTP(S) requests only (GET)
+### ✅ HTTP / HTTPS probing
+- Non-intrusive GET requests only
 - Redirect-aware endpoint discovery
-- Proxy-aware execution for enterprise networks
+- Explicit proxy-awareness for enterprise networks
 
-### Security header analysis
-Checks for common HTTP security headers:
+### ✅ Transport security checks
+- TLS protocol version detection (TLS 1.0–1.3)
+- Detection of deprecated TLS versions
+- TLS certificate expiration analysis
+
+### ✅ HTTP security header analysis
+Checks for common misconfigurations:
 - Strict-Transport-Security (HSTS)
 - Content-Security-Policy (CSP)
 - X-Frame-Options
@@ -46,13 +56,18 @@ Checks for common HTTP security headers:
 - Referrer-Policy
 
 Each finding includes:
-- Severity (low / medium)
+- Severity (low / medium / high)
 - Short explanation
 - Concrete remediation guidance
 
-### Structured output
-- Machine-readable JSON scan artifacts
-- Deterministic scan metadata (scan ID, timestamps)
+### ✅ Deterministic risk scoring
+- Asset-level risk classification (low / medium / high)
+- Explainable scoring rules (no ML / black box)
+- Scan-level risk summary
+
+### ✅ Structured output
+- Machine-readable JSON artifacts
+- Console summary with prioritized assets
 - Explicit warnings when external sources are unavailable
 
 ---
@@ -67,97 +82,114 @@ Each finding includes:
 
 This is **not** a penetration testing tool.
 
-The goal is **secure configuration visibility**, not exploitation.
+The goal is **visibility and prioritization**, not exploitation.
 
 ---
 
 ## Safety & scope
 
-- Uses only passive intelligence sources and standard HTTPS requests
-- Safe to run in production-like environments
-- Designed to degrade gracefully in restricted corporate proxy networks
+- Uses only passive intelligence and standard HTTPS requests
+- Safe to run against production-like environments
+- Designed to degrade gracefully in restricted corporate networks
 - No credentials, secrets, or sensitive data are collected
 
 ---
 
 ## Example usage
 
+```bash
 python -m ass.cli example.com
+```
 
-Output:
-- results/scan_<timestamp>.json
-- Contains assets, endpoints, findings, and warnings
+### Output
+- `results/scan_<timestamp>.json` (structured artifact)
+- Rich console summary:
+  - Risk overview
+  - Top risky assets
+  - Finding counts
+  - Environment warnings (e.g., proxy limitations)
 
 ---
 
 ## Architecture (high level)
 
-Input Domain  
-→ Passive Enumeration (CT logs / fallback)  
-→ DNS Resolution (A / AAAA)  
-→ HTTP / HTTPS Probing  
-→ Security Checks (Headers)  
-→ Structured Scan Result (JSON)
+```
+Input Domain
+   │
+   ▼
+Passive Enumeration (CT logs / fallback)
+   │
+   ▼
+DNS Resolution (A / AAAA)
+   │
+   ▼
+HTTP / HTTPS Probing
+   │
+   ▼
+Security Checks
+   ├─ TLS Versions
+   ├─ Certificate Expiry
+   └─ HTTP Security Headers
+   │
+   ▼
+Risk Scoring (Asset + Scan Level)
+   │
+   ▼
+Structured Result (JSON + Console Summary)
+```
 
 The pipeline is deterministic and intentionally staged to allow
-future extensions without refactoring the core design.
+future extensions without refactoring core components.
 
 ---
 
-## Design decisions
+## Engineering & quality signals
 
-- **Non-intrusive by design**  
-  Avoids legal and operational risks associated with active scanning.
-
-- **Enterprise-aware**  
-  Explicit handling of authenticated proxies and restricted networks.
-
-- **Explainability over volume**  
-  Fewer findings, but each one is actionable and understandable.
-
-- **Extensible architecture**  
-  Clear separation between enumeration, probing, checks, and scoring.
+- Clean `src/`-layout Python package
+- Deterministic data models (Pydantic)
+- Explainable scoring logic
+- Unit tests for core security logic
+- Linting and CI via GitHub Actions
+- Python 3.10–3.12 compatibility
 
 ---
 
-## Roadmap / Planned extensions
+## Testing & CI
 
-### Phase 4 — TLS & certificate analysis
-- Certificate expiration and issuer validation
-- TLS protocol version detection (TLS 1.0–1.3)
-- Identification of weak or deprecated configurations
+This repository uses **GitHub Actions** to ensure code quality:
 
-### Phase 5 — Risk scoring
-- Aggregated asset risk (low / medium / high)
-- Deterministic scoring rules (no black-box ML)
-- Clear reasoning behind each score
+- Unit tests (`pytest`)
+- Static analysis (`ruff`)
+- Multi-version Python matrix (3.10 / 3.11 / 3.12)
 
-### Phase 6 — Cloud-native deployment
-- Containerized execution
-- Deployment on GCP Cloud Run or AWS ECS
-- Centralized logging and artifact storage
-
-### Phase 7 — Baseline comparison
-- Detect newly exposed assets
-- Highlight configuration drift over time
-- Support continuous monitoring workflows
+CI runs automatically on every push and pull request.
 
 ---
 
 ## Limitations
 
-- Relies on external passive data sources for full coverage
+- Relies on passive public data sources for full coverage
 - Does not detect application-layer vulnerabilities
-- Results depend on publicly observable configuration only
+- Results reflect observable configuration only
 
-These limitations are intentional.
+These limitations are intentional and documented.
+
+---
+
+## Roadmap (non-product, engineering-focused)
+
+- Baseline comparison (detect newly exposed assets)
+- Extended TLS configuration analysis (ciphers, curves)
+- JSON schema validation & versioning
+- Cloud execution (containerized, read-only execution)
+- Optional read-only web viewer for scan artifacts
 
 ---
 
 ## Status
 
 Active development  
-Current focus: transport security and configuration correctness
+Current focus: security signal quality and explainability
 
 ---
 
