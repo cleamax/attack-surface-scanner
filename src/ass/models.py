@@ -40,4 +40,5 @@ class ScanResult(BaseModel):
     started_at: datetime
     finished_at: Optional[datetime] = None
     asset_count: int = 0
+    warnings: List[str] = Field(default_factory=list)
     assets: List[Asset] = Field(default_factory=list)
