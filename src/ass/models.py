@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional, Literal
+from typing import Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
 
-
 Severity = Literal["low", "medium", "high"]
+Risk = Literal["low", "medium", "high"]
 
 
 class Finding(BaseModel):
@@ -33,12 +34,21 @@ class Asset(BaseModel):
     uses_https: bool = False
     findings: List[Finding] = Field(default_factory=list)
 
+    # Phase 5 scoring
+    risk: Risk = "low"
+    risk_reasons: List[str] = Field(default_factory=list)
+
 
 class ScanResult(BaseModel):
     scan_id: str
     target_domain: str
     started_at: datetime
     finished_at: Optional[datetime] = None
+
     asset_count: int = 0
     warnings: List[str] = Field(default_factory=list)
+
     assets: List[Asset] = Field(default_factory=list)
+
+    # Phase 5 scan-level summary
+    risk_summary: Dict[str, int] = Field(default_factory=dict)

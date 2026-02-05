@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Set, Optional
-import requests
+from typing import Optional, Set
 
+import requests
 
 UA = {"User-Agent": "ass-scanner/0.1"}
 
@@ -31,13 +31,21 @@ def _from_crtsh(domain: str, timeout: int = 15) -> EnumResult:
         r = requests.get(url, timeout=timeout, headers=UA)
         if r.status_code != 200:
             return EnumResult(set(), warning=f"crt.sh returned HTTP {r.status_code}")
+
         # crt.sh can return HTML on rate-limit/block
         ct = (r.headers.get("content-type") or "").lower()
         if "json" not in ct and not r.text.lstrip().startswith("["):
-            return EnumResult(set(), warning="crt.sh did not return JSON (possibly blocked/rate-limited)")
+            return EnumResult(
+                set(),
+                warning="crt.sh did not return JSON (possibly blocked/rate-limited)",
+            )
+
         data = r.json()
     except requests.exceptions.ProxyError:
-        return EnumResult(set(), warning="Proxy authentication required to reach crt.sh (HTTP 407).")
+        return EnumResult(
+            set(),
+            warning="Proxy authentication required to reach crt.sh (HTTP 407).",
+        )
     except requests.exceptions.RequestException as e:
         return EnumResult(set(), warning=f"Network error reaching crt.sh: {e.__class__.__name__}")
     except ValueError:
@@ -62,8 +70,16 @@ def fallback_subdomains(domain: str) -> Set[str]:
     Keeps the tool useful without external intel sources.
     """
     prefixes = [
-        "www", "api", "auth", "app", "dashboard",
-        "admin", "static", "cdn", "assets", "status"
+        "www",
+        "api",
+        "auth",
+        "app",
+        "dashboard",
+        "admin",
+        "static",
+        "cdn",
+        "assets",
+        "status",
     ]
     return {f"{p}.{domain}" for p in prefixes}
 

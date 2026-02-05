@@ -1,0 +1,36 @@
+{
+  "scan_id": "1899d85b-47b1-4706-b088-250dea430f92",
+  "target_domain": "example.com",
+  "started_at": "2026-02-05T07:49:31.715600",
+  "finished_at": "2026-02-05T07:49:31.715600",
+  "asset_count": 1,
+  "assets": [
+    {
+      "hostname": "www.example.com",
+      "ip_addresses": [
+        "93.184.216.34"
+      ],
+      "endpoints": [
+        {
+          "url": "https://www.example.com",
+          "final_url": "https://www.example.com/",
+          "status_code": 200,
+          "redirect_chain": [],
+          "response_ms": 123
+        }
+      ],
+      "reachable": true,
+      "uses_https": true,
+      "findings": [
+        {
+          "id": "HDR-001",
+          "title": "Missing HSTS header",
+          "severity": "medium",
+          "description": "HTTP Strict Transport Security is not enabled.",
+          "remediation": "Enable HSTS at the load balancer or web server.",
+          "evidence": "Strict-Transport-Security header not present"
+        }
+      ]
+    }okay 
+  ]
+}

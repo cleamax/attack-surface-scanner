@@ -1,4 +1,4 @@
-from ass.enum.crtsh import fallback_subdomains, enumerate_subdomains
+from ass.enum.crtsh import enumerate_subdomains, fallback_subdomains
 
 
 def test_fallback_subdomains_are_deterministic():

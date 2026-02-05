@@ -1,0 +1,92 @@
+{
+  "scan_id": "b67ba0fd-b9e5-4849-b7ee-16b078be1301",
+  "target_domain": "example.com",
+  "started_at": "2026-02-05T08:07:04.722147",
+  "finished_at": "2026-02-05T08:07:05.064271",
+  "asset_count": 10,
+  "warnings": [
+    "Proxy authentication required to reach crt.sh (HTTP 407)."
+  ],
+  "assets": [
+    {
+      "hostname": "admin.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "api.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "app.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "assets.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "auth.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "cdn.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "dashboard.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "static.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "status.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    },
+    {
+      "hostname": "www.example.com",
+      "ip_addresses": [],
+      "endpoints": [],
+      "reachable": false,
+      "uses_https": false,
+      "findings": []
+    }
+  ]
+}

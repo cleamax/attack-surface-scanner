@@ -3,10 +3,9 @@ from __future__ import annotations
 import socket
 import ssl
 from datetime import datetime, timezone
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 from ..models import Finding
-
 
 TLS_VERSIONS = {
     "TLSv1": ssl.TLSVersion.TLSv1,
@@ -41,7 +40,7 @@ def detect_supported_tls_versions(hostname: str) -> List[str]:
 
 def get_certificate_info(hostname: str, timeout: float = 3.0) -> Optional[Dict]:
     """
-    Fetch server certificate via TLS handshake.
+    Fetch server certificate via a TLS handshake.
     """
     context = ssl.create_default_context()
     context.check_hostname = False
@@ -62,7 +61,9 @@ def analyze_certificate(cert: Dict) -> List[Finding]:
 
     not_after_str = cert.get("notAfter")
     if not_after_str:
-        expiry = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+        expiry = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(
+            tzinfo=timezone.utc
+        )
         days_left = (expiry - datetime.now(timezone.utc)).days
 
         if days_left < 0:
@@ -101,7 +102,10 @@ def analyze_tls_versions(supported_versions: List[str]) -> List[Finding]:
                 title="Deprecated TLS versions supported",
                 severity="high",
                 description="The server supports deprecated TLS versions (TLS 1.0 / 1.1).",
-                remediation="Disable TLS versions below TLS 1.2 in the load balancer or server configuration.",
+                remediation=(
+                    "Disable TLS versions below TLS 1.2 in the load balancer or server "
+                    "configuration."
+                ),
                 evidence=f"Supported versions: {', '.join(supported_versions)}",
             )
         )

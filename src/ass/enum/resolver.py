@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import List, Set
-import dns.resolver
+
 import dns.exception
+import dns.resolver
 
 
 def resolve_ips(hostname: str, timeout: float = 2.0) -> List[str]:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
+from typing import List
 
-from ..models import ScanResult, Asset
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from ..models import Asset, ScanResult
 
 
 def _top_assets(assets: List[Asset], limit: int = 10) -> List[Asset]:
@@ -39,7 +40,11 @@ def render_console_summary(result: ScanResult, out_path: str | None = None) -> N
     t.add_column("High", justify="right")
     t.add_column("Medium", justify="right")
     t.add_column("Low", justify="right")
-    t.add_row(str(summary.get("high", 0)), str(summary.get("medium", 0)), str(summary.get("low", 0)))
+    t.add_row(
+        str(summary.get("high", 0)),
+        str(summary.get("medium", 0)),
+        str(summary.get("low", 0)),
+    )
     console.print(t)
 
     # Top risky assets
@@ -54,7 +59,7 @@ def render_console_summary(result: ScanResult, out_path: str | None = None) -> N
     for a in top:
         ips = ", ".join(a.ip_addresses[:4])
         if len(a.ip_addresses) > 4:
-            ips += f" (+{len(a.ip_addresses)-4})"
+            ips += f" (+{len(a.ip_addresses) - 4})"
         reasons = "; ".join(a.risk_reasons[:3]) if a.risk_reasons else "-"
         ta.add_row(a.hostname, a.risk.upper(), ips or "-", str(len(a.findings)), reasons)
 
