@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime
 import uuid
+from datetime import datetime
 
 import httpx
 
-from .models import ScanResult, Asset, Endpoint
-from .enum.crtsh import enumerate_subdomains
-from .enum.resolver import resolve_ips
-from .utils.http import probe_url
 from .checks.headers import check_security_headers
 from .checks.tls import (
-    detect_supported_tls_versions,
-    get_certificate_info,
     analyze_certificate,
     analyze_tls_versions,
+    detect_supported_tls_versions,
+    get_certificate_info,
 )
+from .enum.crtsh import enumerate_subdomains
+from .enum.resolver import resolve_ips
+from .models import Asset, Endpoint, ScanResult
 from .scoring.engine import score_asset, summarize_scan
+from .utils.http import probe_url
 
 
 def run_scan(domain: str) -> ScanResult:
@@ -40,12 +40,11 @@ def run_scan(domain: str) -> ScanResult:
         started_at=datetime.utcnow(),
     )
 
-    # --- Phase 1: Enumeration (with fallback + warning) ---
+    # --- Phase 1: Enumeration ---
     enum_res = enumerate_subdomains(scan.target_domain)
     if enum_res.warning:
         scan.warnings.append(enum_res.warning)
 
-    # --- Per asset ---
     for hostname in sorted(enum_res.subdomains):
         # --- Phase 2: DNS resolve ---
         ips = resolve_ips(hostname)
@@ -55,8 +54,7 @@ def run_scan(domain: str) -> ScanResult:
             reachable=bool(ips),
         )
 
-        # --- Phase 3/4: Probe + checks ---
-        # Prefer HTTPS; fall back to HTTP if needed.
+        # Prefer HTTPS; fall back to HTTP
         for url in (f"https://{hostname}", f"http://{hostname}"):
             pr = probe_url(url)
 
@@ -69,23 +67,23 @@ def run_scan(domain: str) -> ScanResult:
                 )
             )
 
-            # Proxy blocks in enterprise networks -> warn and skip external HTTP/TLS work
+            # Proxy blocks in enterprise networks
             if pr.error == "proxy_auth_required":
-                if "Proxy auth required for HTTP/TLS checks. Run at home or set HTTPS_PROXY." not in scan.warnings:
-                    scan.warnings.append(
-                        "Proxy auth required for HTTP/TLS checks. Run at home or set HTTPS_PROXY."
-                    )
+                proxy_warn = (
+                    "Proxy auth required for HTTP/TLS checks. "
+                    "Run at home or set HTTPS_PROXY."
+                )
+                if proxy_warn not in scan.warnings:
+                    scan.warnings.append(proxy_warn)
                 continue
 
-            # Only do deeper checks if we got an HTTP response
             if not pr.status_code:
                 continue
 
-            # If HTTPS works, mark and run TLS + header checks, then stop trying HTTP
             if url.startswith("https://"):
                 asset.uses_https = True
 
-                # --- TLS analysis (Phase 4) ---
+                # --- TLS analysis ---
                 supported = detect_supported_tls_versions(hostname)
                 asset.findings.extend(analyze_tls_versions(supported))
 
@@ -93,7 +91,7 @@ def run_scan(domain: str) -> ScanResult:
                 if cert:
                     asset.findings.extend(analyze_certificate(cert))
 
-                # --- Header checks (Phase 3) ---
+                # --- Header checks ---
                 try:
                     with httpx.Client(
                         timeout=5.0,
@@ -103,19 +101,22 @@ def run_scan(domain: str) -> ScanResult:
                         trust_env=True,
                     ) as client:
                         r = client.get(url)
-                        asset.findings.extend(check_security_headers(dict(r.headers)))
-                except httpx.ProxyError:
-                    if "Proxy auth required for header checks. Run at home or set HTTPS_PROXY." not in scan.warnings:
-                        scan.warnings.append(
-                            "Proxy auth required for header checks. Run at home or set HTTPS_PROXY."
+                        asset.findings.extend(
+                            check_security_headers(dict(r.headers))
                         )
+                except httpx.ProxyError:
+                    hdr_warn = (
+                        "Proxy auth required for header checks. "
+                        "Run at home or set HTTPS_PROXY."
+                    )
+                    if hdr_warn not in scan.warnings:
+                        scan.warnings.append(hdr_warn)
                 except Exception:
-                    # keep noise low for Phase 0–5; improve later with structured errors
                     pass
 
-                break  # HTTPS successful -> do not probe HTTP
+                break  # HTTPS successful
 
-            # If only HTTP works, we can still do header checks on HTTP
+            # HTTP-only fallback
             if url.startswith("http://"):
                 try:
                     with httpx.Client(
@@ -126,7 +127,9 @@ def run_scan(domain: str) -> ScanResult:
                         trust_env=True,
                     ) as client:
                         r = client.get(url)
-                        asset.findings.extend(check_security_headers(dict(r.headers)))
+                        asset.findings.extend(
+                            check_security_headers(dict(r.headers))
+                        )
                 except Exception:
                     pass
 
