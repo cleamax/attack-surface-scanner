@@ -1,51 +1,28 @@
-# =========================
 # Python
-# =========================
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
 
-# =========================
-# Virtual Environments
-# =========================
+# Virtual environments
 .venv/
 venv/
 
-# =========================
-# Packaging / Build
-# =========================
-build/
-dist/
-*.egg-info/
-
-# =========================
-# Testing / Coverage
-# =========================
+# Test and lint artifacts
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# =========================
-# IDEs / Editors
-# =========================
-.vscode/
+# Scan output. Results contain hostnames and IPs of scanned infrastructure;
+# commit them deliberately, not by accident.
+results/
+
+# Editors / OS
 .idea/
-
-# =========================
-# OS files
-# =========================
+.vscode/
 .DS_Store
-Thumbs.db
-
-# =========================
-# Environment / Secrets
-# =========================
-.env
-
-# =========================
-# Project specific artifacts
-# =========================
-results*.json
-scan_results/
-

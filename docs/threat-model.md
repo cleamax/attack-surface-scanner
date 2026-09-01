@@ -1,8 +1,8 @@
-# Threat Model — Attack Surface Scanner (ASS)
+# Threat Model — Attack Surface Scanner
 
 ## Purpose
 
-ASS is a **non-intrusive** scanner that helps answer:
+The scanner is a **non-intrusive** scanner that helps answer:
 
 > What public-facing assets exist for a given SaaS domain, and what transport/header misconfigurations create risk?
 
@@ -140,3 +140,25 @@ It is intentionally **not** a penetration testing tool and does not perform expl
 - `--rate-limit` and `--max-assets`
 - `--redact` output mode
 - Signed artifacts (hash + signature)
+
+---
+
+## Scope containment (added in 0.2)
+
+The scanner sends traffic to every hostname discovery returns, so discovery output is
+security-relevant input, not just data.
+
+Certificate Transparency logs are public and anyone can add to them. An attacker who
+registers `evilyourcompany.com` and obtains a certificate for it places that hostname in
+the logs, where a `%.yourcompany.com` query may surface it. If the scanner probed that
+host, the operator would be sending unauthorised traffic to a third party on the
+attacker's behalf.
+
+Every discovered hostname is therefore checked with `in_scope()` before probing: it must
+equal the target domain or be a genuine subdomain of it. A suffix comparison is
+insufficient — `"evilexample.com".endswith("example.com")` is `True` — and that exact
+mistake was present before 0.2.
+
+Hostnames rejected by the scope filter are counted and reported in the scan warnings, so
+a lookalike domain appearing in CT logs is surfaced to the operator as information rather
+than acted on.

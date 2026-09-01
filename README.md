@@ -1,242 +1,205 @@
-# Attack Surface Scanner for SaaS Applications
+# Attack Surface Scanner
 
-[![CI](https://github.com/cleamax/attack-surface-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/cleamax/attack-surface-scanner/actions)
+[![CI](https://github.com/richter-max/attack-surface-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/richter-max/attack-surface-scanner/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
+![Type checked](https://img.shields.io/badge/mypy-strict-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-A **non-intrusive attack surface and transport security scanner** for SaaS applications.
+A non-intrusive scanner that answers one question about a domain: **what is publicly
+exposed, and which of it is configured badly?**
 
-This project is intentionally built as a **practical security engineering signal** for
-Cloud Security, Application Security, and Detection-focused roles.
-The emphasis is on **real-world constraints**, **explainability**, and **production-grade engineering practices** rather than exploit-based scanning.
+It discovers hostnames from Certificate Transparency logs, resolves them, probes HTTP and
+HTTPS, and checks transport security and response headers. Output is a JSON artifact and
+a console summary, with a deterministic risk score you can trace to a single finding.
 
----
+## Scope and safety
 
-## Overview
+The scanner sends DNS lookups, plain `GET` requests, and TLS handshakes. Nothing else:
+no port scanning, no brute forcing, no authentication, no crawling, no exploitation.
+It is safe to run against production, and it is not a penetration testing tool.
 
-Modern SaaS applications expose a constantly changing public attack surface:
-subdomains, APIs, dashboards, CDNs, and cloud-managed frontends.
+**Only scan domains you are authorised to test.**
 
-Many real-world security incidents are not caused by advanced exploits, but by:
-- forgotten or undocumented assets
-- weak TLS or certificate configuration
-- missing HTTP security headers
-- configuration drift over time
+That authorisation is enforced in code, not just documented. Certificate Transparency
+data is attacker-influenceable — anyone can obtain a certificate for `evilyourcompany.com`
+and it will appear in the logs under a naive search. Every discovered hostname is checked
+against the target scope before it is probed, and hostnames outside it are counted and
+reported rather than silently scanned:
 
-This project answers a simple but critical question:
+```python
+def in_scope(hostname: str, domain: str) -> bool:
+    return host == base or host.endswith("." + base)
+```
 
-> **What is publicly exposed — and how risky is it?**
+A suffix test would not be enough: `"evilexample.com".endswith("example.com")` is `True`.
+This is the property `tests/test_scope.py` exists to defend.
 
----
-
-## What the scanner does
-
-### Attack surface discovery
-- Passive subdomain enumeration via Certificate Transparency logs
-- Deterministic, non-bruteforce asset discovery
-- Explicit fallback behavior for restricted enterprise proxy environments
-
-### DNS resolution & reachability
-- Resolves A / AAAA records
-- Identifies which assets are actually reachable
-- Safe timeout and error handling
-
-### HTTP / HTTPS probing
-- Non-intrusive GET requests only
-- Redirect-aware endpoint discovery
-- Explicit proxy-awareness for corporate networks
-
-### Transport security checks
-- TLS protocol version detection (TLS 1.0–1.3)
-- Detection of deprecated TLS versions (1.0 / 1.1)
-- TLS certificate expiration analysis
-
-### HTTP security header analysis
-Checks for common security-relevant headers:
-- Strict-Transport-Security (HSTS)
-- Content-Security-Policy (CSP)
-- X-Frame-Options
-- X-Content-Type-Options
-- Referrer-Policy
-
-Each finding includes:
-- Severity (low / medium / high)
-- Short technical explanation
-- Concrete remediation guidance
-
-### Deterministic risk scoring
-- Asset-level risk classification (low / medium / high)
-- Explainable scoring rules (no ML / black-box logic)
-- Scan-level risk summary with top contributing reasons
-
-### Structured output
-- Machine-readable JSON artifacts for further processing
-- Rich CLI summary for fast triage
-- Explicit warnings when external sources are unavailable
-
----
-
-## What this tool intentionally does NOT do
-
-- No exploitation
-- No vulnerability scanning
-- No authentication or crawling
-- No port scanning
-- No brute forcing
-- No intrusive traffic generation
-
-This is **not** a penetration testing tool.
-
-The goal is **visibility and prioritization**, not exploitation.
-
----
-
-## Safety & scope
-
-- Uses only passive intelligence sources and standard HTTPS requests
-- Safe to run against production-like environments
-- Designed to degrade gracefully in restricted enterprise networks
-- No credentials, secrets, or sensitive data are collected
-
----
-
-## Example usage
+## Install and run
 
 ```bash
-python -m ass.cli example.com
+pip install -e .
+
+asm example.com
+asm example.com --out reports --timeout 10
+asm example.com --fail-on high        # exit 1 if a high finding is present
 ```
 
-### Output
-- `results/scan_<timestamp>.json` (structured artifact)
-- Rich console summary:
-  - Risk overview
-  - Top risky assets
-  - Finding counts
-  - Environment warnings (e.g., proxy limitations)
-
----
-
-## Architecture (high level)
+Output goes to `results/scan_<timestamp>.json` alongside a console summary:
 
 ```
-Input Domain
-   │
-   ▼
-Passive Enumeration (CT logs + deterministic fallback)
-   │
-   ▼
-DNS Resolution (A / AAAA)
-   │
-   ▼
-HTTP / HTTPS Probing (redirect-aware)
-   │
-   ▼
-Security Checks
-   ├─ TLS protocol versions
-   ├─ Certificate expiry
-   └─ HTTP security headers
-   │
-   ▼
-Deterministic Risk Scoring
-   │
-   ▼
-Structured Result (JSON + CLI Summary)
-
+╭──────────────── Attack surface — example.com ─────────────────╮
+│ 34 hostnames, 21 resolved  |  discovery: crt.sh  |  46.2s     │
+│ results/scan_20260901_101500.json                             │
+╰───────────────────────────────────────────────────────────────╯
+                Summary
+┏━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━┓
+┃                ┃ High ┃ Medium ┃ Low ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━┩
+│ Assets by risk │    2 │      6 │  13 │
+│ Findings       │    3 │     11 │  18 │
+└────────────────┴──────┴────────┴─────┘
 ```
 
-The pipeline is deterministic and intentionally staged to allow
-future extensions without refactoring core components.
+The `--fail-on` flag makes the scanner usable as a CI gate: run it against your own
+domains on a schedule and fail the job when something regresses.
 
----
+## What it checks
 
-## Engineering & quality signals
+**Discovery** — passive enumeration from Certificate Transparency, scope-filtered, with a
+deterministic fallback list when the source is unreachable. The apex domain is always
+included.
 
-- Clean `src/`-layout Python package
-- Strongly typed data models (Pydantic)
-- Deterministic, explainable scoring logic
-- Unit tests for core security logic
-- Linting and CI enforced via GitHub Actions
-- Python 3.10–3.12 compatibility
+**Reachability** — A and AAAA resolution, then HTTP and HTTPS probes with redirect
+following.
 
----
+**Transport** — supported TLS versions, certificate expiry, chain validity, hostname
+match. Whether the host answers over plaintext at all, and whether HTTP redirects to
+HTTPS.
 
-## Testing & CI
+**Response headers** — HSTS, CSP, X-Frame-Options, X-Content-Type-Options,
+Referrer-Policy.
 
-This repository uses **GitHub Actions** to ensure engineering quality:
+Every finding carries a severity, an explanation of why it matters, remediation guidance,
+and the response it was observed on.
 
-- Unit tests via `pytest`
-- Static analysis via `ruff`
-- Multi-version Python test matrix (3.10 / 3.11 / 3.12)
+### Findings
 
-All checks must pass before changes are merged.
+| ID | Severity | Condition |
+| :--- | :--- | :--- |
+| `NET-001` | high | Host answers over HTTP only |
+| `NET-002` | medium | HTTP does not redirect to HTTPS |
+| `TLS-001` | high | Certificate expired |
+| `TLS-002` | medium | Certificate expires within 30 days |
+| `TLS-003` | high | TLS 1.0 or 1.1 accepted |
+| `TLS-004` | high | Neither TLS 1.2 nor 1.3 supported |
+| `TLS-005` | high | Certificate not yet valid |
+| `TLS-006` | high | Certificate hostname mismatch |
+| `TLS-007` | medium | Certificate chain does not validate |
+| `HDR-001` | medium | Strict-Transport-Security not set |
+| `HDR-002` | medium | Content-Security-Policy not set |
+| `HDR-003` | low | X-Frame-Options not set |
+| `HDR-004` | low | X-Content-Type-Options not set |
+| `HDR-005` | low | Referrer-Policy not set |
 
----
+## Design decisions worth explaining
 
-## Enterprise & proxy awareness
+**Findings only come from application responses.** A 403 from a WAF, a 404, or a 502 from
+a load balancer almost never carries security headers, while the application behind it
+sets them correctly. Reporting those produces findings nobody can act on, so header
+analysis is gated on 2xx and 3xx responses and records the status code as evidence.
 
-In real-world corporate environments, access to external intelligence
-sources is often restricted by authenticated proxies.
+**A header is judged against the scheme it was served over.** Browsers ignore
+`Strict-Transport-Security` on plaintext HTTP, so its absence there is not the finding —
+the finding is that the host answers over HTTP at all, which is `NET-001`.
 
-This tool:
-- Detects proxy-related failures explicitly
-- Emits structured warnings instead of failing silently
-- Continues scanning with degraded capabilities where possible
+**Risk is the worst finding, not a sum.** Fifty low-severity findings do not add up to a
+high-risk asset. One expired certificate does. Any score can be explained by pointing at
+a single finding, which is the whole point of not using a weighting model.
 
-This behavior is intentional and mirrors real production constraints.
+**Certificates are read as raw DER.** The obvious implementation — disable verification,
+call `getpeercert()` — silently returns an empty dict, because CPython only decodes a
+certificate it validated. This scanner attempts a verified handshake first and falls back
+to parsing the DER, so expired and self-signed certificates are reported rather than
+skipped. See below.
 
----
+**Proxy failures are reported, not swallowed.** In a corporate network an authenticated
+proxy will block outbound requests. The scanner detects HTTP 407 explicitly and emits a
+warning saying the results are incomplete, rather than returning a clean-looking scan of
+nothing.
+
+More in [docs/design-decisions.md](docs/design-decisions.md) and
+[docs/threat-model.md](docs/threat-model.md).
 
 ## Limitations
 
-- Relies on passive public data sources for full coverage
-- Does not detect application-layer vulnerabilities
-- Results reflect observable configuration only
+- **Coverage depends on Certificate Transparency.** Hosts that never had a public
+  certificate will not be discovered. When crt.sh is unreachable the fallback list is
+  used, and the scan says so — those results are not representative.
+- **Configuration only.** No application-layer vulnerabilities, no authenticated
+  surface, no business logic.
+- **A missing header is not a vulnerability.** It is a missing mitigation. The severities
+  here reflect that.
+- **Cipher suites and curves are not analysed**, only protocol versions.
+- **One observation, no history.** Drift detection is on the roadmap.
 
-These limitations are intentional and documented.
+## Development
 
----
+```bash
+pip install -e ".[dev]"
 
-## Interview talking points
+pytest --cov=asm       # 120 tests
+mypy                   # strict
+ruff check .
+```
 
-This project is designed to be discussed in interviews:
+CI runs the suite across Python 3.10, 3.11 and 3.12, and separately with sockets
+disabled. That second job exists because a scanner's test suite must not depend on the
+services it scans — an earlier version called crt.sh live from a unit test, so CI failed
+whenever the service rate-limited.
 
-- Why non-intrusive scanning instead of exploitation?
-- Why Certificate Transparency as a primary signal?
-- Why deterministic scoring instead of ML-based risk?
-- How would you extend this for production use?
-- What security signals would you explicitly avoid automating?
+### On the two bugs this version fixes
 
----
+Both were in modules with no test coverage, and both failed silently.
 
-## Roadmap (engineering-focused)
+**Certificate checks could never fire.** `get_certificate_info()` disabled verification so
+that expired certificates could still be read, then called `getpeercert()`. CPython
+returns `{}` from that call unless the peer certificate was validated, so `notAfter` was
+never present and `TLS-001` and `TLS-002` were unreachable code. The scanner reported
+clean certificates for everything, including expired ones.
 
-- Baseline comparison & drift detection
-- Extended TLS analysis (cipher suites, curves)
-- JSON schema versioning
-- Containerized, read-only cloud execution
-- Optional read-only web viewer for scan artifacts
+**Discovery accepted hostnames outside the target scope.** `hostname.endswith(domain)`
+authorised `evilexample.com` for the target `example.com`. Since CT data is
+attacker-influenceable, that meant a third party could cause the scanner to send traffic
+to a host the operator never authorised — the one category of bug a scanner really cannot
+have.
 
----
+`tests/test_scope.py` and `tests/test_tls.py` are the regression suites for these.
 
-## Status
+```text
+src/asm/
+├── checks/       # TLS and header analysis
+├── discovery/    # CT enumeration with scope filtering, DNS resolution
+├── reporting/    # console output
+├── scoring/      # deterministic risk buckets
+├── utils/        # HTTP probing
+├── models.py     # pydantic schema for the JSON artifact
+└── pipeline.py   # scan orchestration
+```
 
-Active development  
-Current focus: **signal quality, explainability, and robustness**
+## Roadmap
 
----
+- Baseline comparison and drift detection between scans
+- Cipher suite and curve analysis
+- Additional discovery sources beyond Certificate Transparency
+- Containerised read-only execution
 
 ## License
 
-MIT License
+MIT
 
 ## Contact
 
-📧 **max.richter.dev@proton.me**  
+**max.richter.dev@proton.me** · [richtermax.com](https://www.richtermax.com/) ·
+[LinkedIn](https://www.linkedin.com/in/maximilian-richter-40697a298/)
 
-<a href="https://www.linkedin.com/in/maximilian-richter-40697a298/">
-  <img src="https://img.shields.io/badge/-LinkedIn-0072b1?&style=for-the-badge&logo=linkedin&logoColor=white" />
-</a>
-
-<a href="https://github.com/cleamax">
-  <img src="https://img.shields.io/badge/-GitHub-181717?&style=for-the-badge&logo=github&logoColor=white" />
-</a>
-
-> All testing and experimentation is performed legally and only with explicit consent.
+> Only run this against infrastructure you own or have written permission to test.

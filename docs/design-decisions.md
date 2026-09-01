@@ -1,20 +1,19 @@
-# Design Decisions — Attack Surface Scanner (ASS)
+# Design Decisions — Attack Surface Scanner
 
 This document summarizes the main engineering choices and the rationale behind them.
-It is written to support interview discussion.
 
 ---
 
 ## 1) Why “non-intrusive” by design?
 
 ### Decision
-ASS performs **passive discovery** + **minimal HTTP/TLS metadata checks** (safe GET, header inspection, TLS handshake).
+The scanner performs **passive discovery** + **minimal HTTP/TLS metadata checks** (safe GET, header inspection, TLS handshake).
 It does not perform exploitation, brute force, or port scanning.
 
 ### Rationale
 - Production-safe and ethically clearer
 - Represents common real-world security engineering workflows (asset inventory + configuration validation)
-- Reduces legal/operational risk and avoids “pentest tool” framing
+- Reduces legal and operational risk, and keeps the authorised scope unambiguous
 
 ### Trade-off
 Lower coverage vs active scanning, but higher safety and clearer scope.

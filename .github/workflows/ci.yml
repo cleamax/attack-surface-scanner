@@ -2,33 +2,111 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
-  test:
+  quality:
+    name: Quality (Ruff + Mypy + Pytest)
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: "pip"
 
-      - name: Install project (with dev deps)
+      - name: Install
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          python -m pip install --upgrade pip setuptools
+          pip install -e ".[dev]"
 
-      - name: Lint (ruff)
-        run: |
-          ruff check .
+      - name: Lint
+        run: ruff check .
 
-      - name: Run tests (pytest)
+      - name: Type check
+        run: mypy
+
+      - name: Test
+        run: pytest --cov=asm --cov-report=term-missing --cov-fail-under=85
+
+  offline:
+    name: Test suite makes no network calls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install
         run: |
-          pytest
+          python -m pip install --upgrade pip setuptools
+          pip install -e ".[dev]" pytest-socket
+
+      - name: Run with sockets disabled
+        # A scanner's test suite must not depend on the targets it scans. An earlier
+        # version called crt.sh live from a unit test, which made CI fail whenever the
+        # service rate-limited.
+        run: pytest --disable-socket --allow-unix-socket
+
+  security:
+    name: Security Scan (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install bandit[toml]
+
+      - name: Run Bandit
+        run: bandit -r src/asm
+
+  supply-chain:
+    name: Supply Chain Audit (pip-audit)
+    runs-on: ubuntu-latest
+    # Advisory only: findings in transitive dependencies this project does not select
+    # should not turn the build red. Results appear in the run summary.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install pip-audit
+
+      - name: Audit
+        run: |
+          pip-audit --desc --format markdown --output audit.md || true
+          {
+            echo "## Dependency audit"
+            echo
+            if [ -s audit.md ]; then cat audit.md; else echo "No known vulnerabilities found."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          pip-audit
